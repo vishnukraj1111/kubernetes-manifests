@@ -1,0 +1,111 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: air 
+  name: example-app 
+spec:
+  replicas: 11
+  selector:
+    matchLabels:
+      service: example-app
+      env: prod
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0 
+  minReadySeconds: 30
+  template:
+    metadata:
+      labels:
+        service: example-app
+        env: prod
+    spec:
+      
+      containers:
+      - name: example-app
+        image: dockerregistry.com/example-app:211
+        imagePullPolicy: IfNotPresent
+        resources:
+         limits:
+           memory: "8G"
+           cpu: "4"
+         requests:
+           memory: "5G"
+           cpu: "500m"
+      
+    
+        env:
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: STARTCMD
+          value: "java  -jar app.jar"
+        - name: FILEBEAT
+          value: "false"
+        - name: FILEBEAT_APP_NAME
+          value: "example-app"
+        - name: FILEBEAT_APP_TOPIC
+          value: "air-search-app"
+        - name: FILEBEAT_ITI_TOPIC
+          value: "airsrch-access"
+        - name: NEW_RELIC_APP_NAME
+          value: "example-app"      
+
+        ports:
+        - containerPort: 9080
+        readinessProbe:
+          tcpSocket:
+            port: 9080
+          initialDelaySeconds: 90
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+             path: /extapi/actuator/health
+             port: 9080
+          initialDelaySeconds: 90
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+             path: /extapi/actuator/health
+             port: 9080
+          initialDelaySeconds: 90
+          timeoutSeconds: 5
+          periodSeconds: 90
+
+      dnsPolicy: "ClusterFirst"
+      nodeSelector:
+        resource-group: application
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: air
+  name: example-app
+spec:
+  type: ClusterIP
+  selector:
+    service: example-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 9080
+
+---
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: example-app
+  namespace: air
+spec:
+  maxReplicas: 21
+  minReplicas: 11
+  scaleTargetRef:
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    name: example-app
+  targetCPUUtilizationPercentage: 70

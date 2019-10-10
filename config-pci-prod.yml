@@ -1,0 +1,21 @@
+apiVersion: kubeadm.k8s.io/v1alpha3
+kind: ClusterConfiguration
+kubernetesVersion: stable
+apiServerCertSANs:
+    - 172.xx.5.239
+    - 172.xx.65.14
+    - 172.xx.65.15
+    - 172.xx.65.16
+controlPlaneEndpoint: "172.xx.5.239:6443"
+etcd:
+    external:
+         endpoints:
+         - https://172.xx.65.11:2379
+         - https://172.xx.65.12:2379
+         - https://172.xx.65.13:2379
+         caFile: /etc/kubernetes/pki/ca.pem
+         certFile: /etc/kubernetes/pki/client.pem
+         keyFile: /etc/kubernetes/pki/key.pem
+networking:
+   podSubnet: "10.200.0.0/16"
+

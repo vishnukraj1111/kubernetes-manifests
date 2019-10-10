@@ -1,0 +1,42 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: conntrack-set
+  labels:
+    app: conntrack-set
+spec:
+  template:
+    metadata:
+      labels:
+        app: conntrack-set
+    spec:
+      hostPID: true
+      containers:
+      - name: conntrack-set
+        image: dockerregistry.com/startup-script:v1
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: STARTUP_SCRIPT
+          value: |
+            #!/bin/bash
+            while true
+            do
+              nfCurrentMaxCount=$(cat /proc/sys/net/netfilter/nf_conntrack_max)
+              new_ct_max=$(awk '$1 == "MemTotal:" { printf "%d\n", $2/32; exit; }' /proc/meminfo)
+              if [[ "$new_ct_max" != "$nfCurrentMaxCount" ]] ; then
+                  echo "$nfCurrentMaxCount is the value changing it to $new_ct_max"
+                  sysctl -w net.netfilter.nf_conntrack_max="${new_ct_max:?}"
+                  echo "net.netfilter.nf_conntrack_max=${new_ct_max:?}" >> /etc/sysctl.conf
+              fi
+            sleep 3h
+            done
+
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+
+
+
